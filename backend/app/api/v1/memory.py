@@ -9,7 +9,9 @@ import uuid
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.v1.schemas.memory import MemoryCreate, MemoryOut, MemoryUpdate
+from app.domain.timeline.entity import TimelineEventType
 from app.services.memory_service import MemoryService, get_memory_service
+from app.services.timeline_service import TimelineService, get_timeline_service
 
 router = APIRouter(prefix="/memories", tags=["memory"])
 
@@ -18,9 +20,16 @@ router = APIRouter(prefix="/memories", tags=["memory"])
 async def create_memory(
     payload: MemoryCreate,
     service: MemoryService = Depends(get_memory_service),
+    timeline: TimelineService = Depends(get_timeline_service),
 ) -> MemoryOut:
     memory = await service.create_memory(
         content=payload.content, tags=payload.tags, metadata=payload.metadata
+    )
+    await timeline.record(
+        event_type=TimelineEventType.MEMORY_CREATED,
+        entity_type="memory",
+        entity_id=memory.id,
+        title=memory.content[:200],
     )
     return MemoryOut.model_validate(memory)
 

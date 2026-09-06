@@ -13,8 +13,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import get_settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
+from app.db.models.document import DocumentModel  # noqa: E402,F401 — registers the table
+from app.db.models.inventory_item import InventoryItemModel  # noqa: E402,F401
 from app.db.models.memory import MemoryModel  # noqa: E402,F401 — registers the table
 from app.db.models.task import TaskModel  # noqa: E402,F401 — registers the table
+from app.db.models.timeline_event import TimelineEventModel  # noqa: E402,F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

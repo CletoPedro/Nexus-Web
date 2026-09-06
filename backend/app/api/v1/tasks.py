@@ -10,7 +10,9 @@ from fastapi import APIRouter, Depends, Query, status
 
 from app.api.v1.schemas.task import TaskCreate, TaskOut, TaskStatusUpdate, TaskUpdate
 from app.domain.tasks.entity import TaskPriority, TaskStatus
+from app.domain.timeline.entity import TimelineEventType
 from app.services.task_service import TaskService, get_task_service
+from app.services.timeline_service import TimelineService, get_timeline_service
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -19,12 +21,19 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 async def create_task(
     payload: TaskCreate,
     service: TaskService = Depends(get_task_service),
+    timeline: TimelineService = Depends(get_timeline_service),
 ) -> TaskOut:
     task = await service.create_task(
         title=payload.title,
         description=payload.description,
         priority=payload.priority,
         due_date=payload.due_date,
+    )
+    await timeline.record(
+        event_type=TimelineEventType.TASK_CREATED,
+        entity_type="task",
+        entity_id=task.id,
+        title=task.title,
     )
     return TaskOut.model_validate(task)
 
@@ -89,8 +98,16 @@ async def update_task_status(
     task_id: uuid.UUID,
     payload: TaskStatusUpdate,
     service: TaskService = Depends(get_task_service),
+    timeline: TimelineService = Depends(get_timeline_service),
 ) -> TaskOut:
     task = await service.set_status(task_id, payload.status)
+    if payload.status == TaskStatus.DONE:
+        await timeline.record(
+            event_type=TimelineEventType.TASK_COMPLETED,
+            entity_type="task",
+            entity_id=task.id,
+            title=task.title,
+        )
     return TaskOut.model_validate(task)
 
 
