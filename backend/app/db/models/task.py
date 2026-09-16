@@ -2,8 +2,8 @@
 Task ORM model. Mirrors the Memory model's full-text search pattern
 (tsvector + GIN index), indexing title + description.
 """
-from sqlalchemy import Computed, DateTime, Enum, Index, String, Text
-from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy import Computed, DateTime, Enum, ForeignKey, Index, String, Text
+from sqlalchemy.dialects.postgresql import TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import AuditMixin, Base
@@ -14,6 +14,9 @@ class TaskModel(AuditMixin, Base):
     __tablename__ = "tasks"
 
     title: Mapped[str] = mapped_column(String(500), nullable=False)
+    user_id: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     status: Mapped[TaskStatus] = mapped_column(
         Enum(TaskStatus, name="task_status"), nullable=False, default=TaskStatus.TODO

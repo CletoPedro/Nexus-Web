@@ -18,6 +18,7 @@ from datetime import date, datetime
 @dataclass
 class Document:
     title: str
+    user_id: uuid.UUID
     description: str = ""
     category: str = ""
     file_name: str = ""

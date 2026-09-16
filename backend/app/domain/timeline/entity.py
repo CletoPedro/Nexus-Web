@@ -31,6 +31,7 @@ class TimelineEvent:
     entity_type: str
     entity_id: uuid.UUID
     title: str
+    user_id: uuid.UUID
     id: uuid.UUID = field(default_factory=uuid.uuid4)
     occurred_at: datetime | None = None
     created_at: datetime | None = None

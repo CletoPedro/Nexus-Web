@@ -40,6 +40,7 @@ _VALID_TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
 @dataclass
 class Task:
     title: str
+    user_id: uuid.UUID
     description: str = ""
     status: TaskStatus = TaskStatus.TODO
     priority: TaskPriority = TaskPriority.MEDIUM

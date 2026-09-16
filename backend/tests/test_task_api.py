@@ -2,14 +2,11 @@
 Task API tests, run against the real Postgres database — no mocking of
 the repository or database layer.
 """
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
 
 
-def test_create_and_get_task():
+
+
+def test_create_and_get_task(client):
     resp = client.post("/api/v1/tasks", json={"title": "Buy milk"})
     assert resp.status_code == 201
     body = resp.json()
@@ -25,12 +22,12 @@ def test_create_and_get_task():
     client.delete(f"/api/v1/tasks/{task_id}")
 
 
-def test_create_rejects_empty_title():
+def test_create_rejects_empty_title(client):
     resp = client.post("/api/v1/tasks", json={"title": "   "})
     assert resp.status_code == 422
 
 
-def test_create_with_priority_and_due_date():
+def test_create_with_priority_and_due_date(client):
     resp = client.post(
         "/api/v1/tasks",
         json={
@@ -47,12 +44,12 @@ def test_create_with_priority_and_due_date():
     client.delete(f"/api/v1/tasks/{body['id']}")
 
 
-def test_create_rejects_invalid_priority():
+def test_create_rejects_invalid_priority(client):
     resp = client.post("/api/v1/tasks", json={"title": "Bad task", "priority": "URGENT"})
     assert resp.status_code == 422
 
 
-def test_list_tasks_includes_created():
+def test_list_tasks_includes_created(client):
     resp = client.post("/api/v1/tasks", json={"title": "List-test task"})
     task_id = resp.json()["id"]
 
@@ -64,7 +61,7 @@ def test_list_tasks_includes_created():
     client.delete(f"/api/v1/tasks/{task_id}")
 
 
-def test_list_filters_by_status():
+def test_list_filters_by_status(client):
     todo_resp = client.post("/api/v1/tasks", json={"title": "Stays todo"})
     todo_id = todo_resp.json()["id"]
     done_resp = client.post("/api/v1/tasks", json={"title": "Will be done"})
@@ -80,7 +77,7 @@ def test_list_filters_by_status():
     client.delete(f"/api/v1/tasks/{done_id}")
 
 
-def test_list_filters_by_priority():
+def test_list_filters_by_priority(client):
     low_resp = client.post("/api/v1/tasks", json={"title": "Low priority", "priority": "LOW"})
     critical_resp = client.post(
         "/api/v1/tasks", json={"title": "Critical priority", "priority": "CRITICAL"}
@@ -95,7 +92,7 @@ def test_list_filters_by_priority():
     client.delete(f"/api/v1/tasks/{critical_resp.json()['id']}")
 
 
-def test_overdue_filter():
+def test_overdue_filter(client):
     overdue_resp = client.post(
         "/api/v1/tasks",
         json={"title": "Overdue task", "due_date": "2020-01-01T00:00:00Z"},
@@ -114,7 +111,7 @@ def test_overdue_filter():
     client.delete(f"/api/v1/tasks/{future_resp.json()['id']}")
 
 
-def test_completing_an_overdue_task_removes_it_from_overdue_filter():
+def test_completing_an_overdue_task_removes_it_from_overdue_filter(client):
     resp = client.post(
         "/api/v1/tasks",
         json={"title": "Overdue then done", "due_date": "2020-01-01T00:00:00Z"},
@@ -130,7 +127,7 @@ def test_completing_an_overdue_task_removes_it_from_overdue_filter():
     client.delete(f"/api/v1/tasks/{task_id}")
 
 
-def test_update_task():
+def test_update_task(client):
     resp = client.post("/api/v1/tasks", json={"title": "Original title"})
     task_id = resp.json()["id"]
 
@@ -145,7 +142,7 @@ def test_update_task():
     client.delete(f"/api/v1/tasks/{task_id}")
 
 
-def test_valid_status_transition():
+def test_valid_status_transition(client):
     resp = client.post("/api/v1/tasks", json={"title": "Transition test"})
     task_id = resp.json()["id"]
 
@@ -161,7 +158,7 @@ def test_valid_status_transition():
     client.delete(f"/api/v1/tasks/{task_id}")
 
 
-def test_invalid_status_transition_from_done_is_rejected():
+def test_invalid_status_transition_from_done_is_rejected(client):
     resp = client.post("/api/v1/tasks", json={"title": "Terminal state test"})
     task_id = resp.json()["id"]
     client.put(f"/api/v1/tasks/{task_id}/status", json={"status": "DONE"})
@@ -173,7 +170,7 @@ def test_invalid_status_transition_from_done_is_rejected():
     client.delete(f"/api/v1/tasks/{task_id}")
 
 
-def test_delete_task_then_404():
+def test_delete_task_then_404(client):
     resp = client.post("/api/v1/tasks", json={"title": "To be deleted"})
     task_id = resp.json()["id"]
 
@@ -184,7 +181,7 @@ def test_delete_task_then_404():
     assert resp.status_code == 404
 
 
-def test_search_finds_matching_task():
+def test_search_finds_matching_task(client):
     resp = client.post(
         "/api/v1/tasks", json={"title": "Renew passport", "description": "Before travel in June"}
     )
@@ -198,6 +195,6 @@ def test_search_finds_matching_task():
     client.delete(f"/api/v1/tasks/{task_id}")
 
 
-def test_get_nonexistent_task_is_404():
+def test_get_nonexistent_task_is_404(client):
     resp = client.get("/api/v1/tasks/00000000-0000-0000-0000-000000000000")
     assert resp.status_code == 404

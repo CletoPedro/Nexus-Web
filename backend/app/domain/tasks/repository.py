@@ -12,12 +12,13 @@ class TaskRepository(ABC):
     async def create(self, task: Task) -> Task: ...
 
     @abstractmethod
-    async def get(self, task_id: uuid.UUID) -> Task | None: ...
+    async def get(self, task_id: uuid.UUID, *, user_id: uuid.UUID) -> Task | None: ...
 
     @abstractmethod
     async def list_all(
         self,
         *,
+        user_id: uuid.UUID,
         status: TaskStatus | None = None,
         priority: TaskPriority | None = None,
         overdue_only: bool = False,
@@ -29,7 +30,14 @@ class TaskRepository(ABC):
     async def update(self, task: Task) -> Task: ...
 
     @abstractmethod
-    async def delete(self, task_id: uuid.UUID) -> None: ...
+    async def delete(self, task_id: uuid.UUID, *, user_id: uuid.UUID) -> None: ...
 
     @abstractmethod
-    async def search(self, query: str, *, limit: int = 50) -> list[Task]: ...
+    async def search(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[Task]: ...
+
+    @abstractmethod
+    async def search_with_rank(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[tuple[Task, float]]: ...

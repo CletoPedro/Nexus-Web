@@ -269,3 +269,15 @@ Antes de avançar para a **PHASE W2**, preciso da tua confirmação sobre:
 5. **Deployment alvo** (mesmo que não seja implementado já) — Docker Compose auto-hospedado, Vercel + serviço gerido de Postgres, ou outro? Isto influencia decisões em `infrastructure/`.
 
 Aguardo aprovação (com ou sem ajustes aos pontos acima) antes de iniciar a **PHASE W2 — Repository Scaffolding + Frontend Foundation**.
+
+---
+
+## 13. Adenda — Estado real após W12 (atualizado)
+
+Este documento mantém-se como referência arquitetural original. Alterações reais confirmadas desde então:
+
+- **Autenticação implementada na W12** conforme previsto no ponto 4 acima: JWT single-user, arquitetura pronta para multi-utilizador (tabela `users`, `user_id` em todas as entidades de dados).
+- **Deployment real:** Railway (backend + PostgreSQL) e Vercel (frontend), conforme o ponto 5. Estado atual detalhado, incluindo problemas de configuração encontrados e por resolver, em `docs/phases/PHASE_W12_REPORT.md`, secções 11-12.
+- **Módulos implementados até à data:** Memory (W4.5), Tasks (W6), Documents/Inventory/Timeline (W7-W9), Global Search (W10), NOW Dashboard (W11), Security Foundation (W12). Ver `docs/phases/` para o relatório de cada fase.
+- **GitHub:** o repositório `CletoPedro/Nexus-Web` está, à data deste documento, atrasado face a esta sandbox — contém até W7-W9. W10-W12 aguardam push manual (sem credenciais de escrita disponíveis ao agente).
+

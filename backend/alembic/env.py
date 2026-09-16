@@ -18,6 +18,7 @@ from app.db.models.inventory_item import InventoryItemModel  # noqa: E402,F401
 from app.db.models.memory import MemoryModel  # noqa: E402,F401 — registers the table
 from app.db.models.task import TaskModel  # noqa: E402,F401 — registers the table
 from app.db.models.timeline_event import TimelineEventModel  # noqa: E402,F401
+from app.db.models.user import UserModel  # noqa: E402,F401 — registers the table
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

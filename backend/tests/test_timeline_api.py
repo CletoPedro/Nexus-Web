@@ -4,11 +4,8 @@ integration tests confirming Memory, Tasks, Documents, and Inventory each
 generate a real timeline event on creation (and Tasks on completion) —
 this is the central requirement of W9.
 """
-from fastapi.testclient import TestClient
 
-from app.main import app
 
-client = TestClient(app)
 
 
 def _find_event(events: list[dict], entity_id: str, event_type: str) -> dict | None:
@@ -18,7 +15,7 @@ def _find_event(events: list[dict], entity_id: str, event_type: str) -> dict | N
     return None
 
 
-def test_memory_creation_generates_timeline_event():
+def test_memory_creation_generates_timeline_event(client):
     resp = client.post("/api/v1/memories", json={"content": "Timeline integration test memory"})
     memory_id = resp.json()["id"]
 
@@ -31,7 +28,7 @@ def test_memory_creation_generates_timeline_event():
     client.delete(f"/api/v1/memories/{memory_id}")
 
 
-def test_task_creation_generates_timeline_event():
+def test_task_creation_generates_timeline_event(client):
     resp = client.post("/api/v1/tasks", json={"title": "Timeline integration test task"})
     task_id = resp.json()["id"]
 
@@ -42,7 +39,7 @@ def test_task_creation_generates_timeline_event():
     client.delete(f"/api/v1/tasks/{task_id}")
 
 
-def test_task_completion_generates_timeline_event():
+def test_task_completion_generates_timeline_event(client):
     resp = client.post("/api/v1/tasks", json={"title": "Task to complete"})
     task_id = resp.json()["id"]
 
@@ -55,7 +52,7 @@ def test_task_completion_generates_timeline_event():
     client.delete(f"/api/v1/tasks/{task_id}")
 
 
-def test_task_creation_and_completion_both_recorded_separately():
+def test_task_creation_and_completion_both_recorded_separately(client):
     """A single task generates two distinct timeline events, not one."""
     resp = client.post("/api/v1/tasks", json={"title": "Both events test"})
     task_id = resp.json()["id"]
@@ -71,7 +68,7 @@ def test_task_creation_and_completion_both_recorded_separately():
     client.delete(f"/api/v1/tasks/{task_id}")
 
 
-def test_document_creation_generates_timeline_event():
+def test_document_creation_generates_timeline_event(client):
     resp = client.post("/api/v1/documents", json={"title": "Timeline integration test doc"})
     doc_id = resp.json()["id"]
 
@@ -82,7 +79,7 @@ def test_document_creation_generates_timeline_event():
     client.delete(f"/api/v1/documents/{doc_id}")
 
 
-def test_inventory_creation_generates_timeline_event():
+def test_inventory_creation_generates_timeline_event(client):
     resp = client.post("/api/v1/inventory", json={"name": "Timeline integration test item"})
     item_id = resp.json()["id"]
 
@@ -93,7 +90,7 @@ def test_inventory_creation_generates_timeline_event():
     client.delete(f"/api/v1/inventory/{item_id}")
 
 
-def test_inventory_update_generates_timeline_event():
+def test_inventory_update_generates_timeline_event(client):
     resp = client.post("/api/v1/inventory", json={"name": "Update test item"})
     item_id = resp.json()["id"]
 
@@ -106,7 +103,7 @@ def test_inventory_update_generates_timeline_event():
     client.delete(f"/api/v1/inventory/{item_id}")
 
 
-def test_timeline_ordered_newest_first():
+def test_timeline_ordered_newest_first(client):
     resp1 = client.post("/api/v1/memories", json={"content": "First timeline order test"})
     resp2 = client.post("/api/v1/memories", json={"content": "Second timeline order test"})
 
@@ -119,7 +116,7 @@ def test_timeline_ordered_newest_first():
     client.delete(f"/api/v1/memories/{resp2.json()['id']}")
 
 
-def test_timeline_search():
+def test_timeline_search(client):
     resp = client.post(
         "/api/v1/memories", json={"content": "Renew car insurance before it lapses"}
     )

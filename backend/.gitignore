@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Secrets — never commit real environment values (W12 hardening)
+.env
+.env.*
+!.env.example

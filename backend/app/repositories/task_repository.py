@@ -16,6 +16,7 @@ def _to_entity(row: TaskModel) -> Task:
     return Task(
         id=row.id,
         title=row.title,
+        user_id=row.user_id,
         description=row.description,
         status=row.status,
         priority=row.priority,
@@ -30,10 +31,20 @@ class PostgresTaskRepository(TaskRepository):
     def __init__(self, session: AsyncSession):
         self._session = session
 
+    async def _get_row(self, task_id: uuid.UUID, *, user_id: uuid.UUID) -> TaskModel | None:
+        stmt = select(TaskModel).where(
+            TaskModel.id == task_id,
+            TaskModel.user_id == user_id,
+            TaskModel.deleted_at.is_(None),
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def create(self, task: Task) -> Task:
         row = TaskModel(
             id=task.id,
             title=task.title,
+            user_id=task.user_id,
             description=task.description,
             status=task.status,
             priority=task.priority,
@@ -45,22 +56,23 @@ class PostgresTaskRepository(TaskRepository):
         await self._session.refresh(row)
         return _to_entity(row)
 
-    async def get(self, task_id: uuid.UUID) -> Task | None:
-        row = await self._session.get(TaskModel, task_id)
-        if row is None or row.deleted_at is not None:
-            return None
-        return _to_entity(row)
+    async def get(self, task_id: uuid.UUID, *, user_id: uuid.UUID) -> Task | None:
+        row = await self._get_row(task_id, user_id=user_id)
+        return _to_entity(row) if row else None
 
     async def list_all(
         self,
         *,
+        user_id: uuid.UUID,
         status: TaskStatus | None = None,
         priority: TaskPriority | None = None,
         overdue_only: bool = False,
         limit: int = 100,
         offset: int = 0,
     ) -> list[Task]:
-        stmt = select(TaskModel).where(TaskModel.deleted_at.is_(None))
+        stmt = select(TaskModel).where(
+            TaskModel.user_id == user_id, TaskModel.deleted_at.is_(None)
+        )
         if status is not None:
             stmt = stmt.where(TaskModel.status == status)
         if priority is not None:
@@ -79,8 +91,8 @@ class PostgresTaskRepository(TaskRepository):
         return [_to_entity(row) for row in result.scalars().all()]
 
     async def update(self, task: Task) -> Task:
-        row = await self._session.get(TaskModel, task.id)
-        if row is None or row.deleted_at is not None:
+        row = await self._get_row(task.id, user_id=task.user_id)
+        if row is None:
             raise ValueError(f"Task {task.id} not found")
         row.title = task.title
         row.description = task.description
@@ -92,18 +104,21 @@ class PostgresTaskRepository(TaskRepository):
         await self._session.refresh(row)
         return _to_entity(row)
 
-    async def delete(self, task_id: uuid.UUID) -> None:
-        row = await self._session.get(TaskModel, task_id)
+    async def delete(self, task_id: uuid.UUID, *, user_id: uuid.UUID) -> None:
+        row = await self._get_row(task_id, user_id=user_id)
         if row is None:
             return
         row.deleted_at = func.now()
         await self._session.commit()
 
-    async def search(self, query: str, *, limit: int = 50) -> list[Task]:
+    async def search(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[Task]:
         ts_query = func.plainto_tsquery("english", query)
         stmt = (
             select(TaskModel)
             .where(
+                TaskModel.user_id == user_id,
                 TaskModel.deleted_at.is_(None),
                 TaskModel.search_vector.op("@@")(ts_query),
             )
@@ -112,3 +127,21 @@ class PostgresTaskRepository(TaskRepository):
         )
         result = await self._session.execute(stmt)
         return [_to_entity(row) for row in result.scalars().all()]
+
+    async def search_with_rank(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[tuple[Task, float]]:
+        ts_query = func.plainto_tsquery("english", query)
+        rank = func.ts_rank(TaskModel.search_vector, ts_query).label("rank")
+        stmt = (
+            select(TaskModel, rank)
+            .where(
+                TaskModel.user_id == user_id,
+                TaskModel.deleted_at.is_(None),
+                TaskModel.search_vector.op("@@")(ts_query),
+            )
+            .order_by(rank.desc())
+            .limit(limit)
+        )
+        result = await self._session.execute(stmt)
+        return [(_to_entity(row), float(r)) for row, r in result.all()]

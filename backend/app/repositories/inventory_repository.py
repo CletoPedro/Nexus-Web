@@ -15,6 +15,7 @@ def _to_entity(row: InventoryItemModel) -> InventoryItem:
     return InventoryItem(
         id=row.id,
         name=row.name,
+        user_id=row.user_id,
         description=row.description,
         category=row.category,
         location=row.location,
@@ -32,10 +33,22 @@ class PostgresInventoryRepository(InventoryRepository):
     def __init__(self, session: AsyncSession):
         self._session = session
 
+    async def _get_row(
+        self, item_id: uuid.UUID, *, user_id: uuid.UUID
+    ) -> InventoryItemModel | None:
+        stmt = select(InventoryItemModel).where(
+            InventoryItemModel.id == item_id,
+            InventoryItemModel.user_id == user_id,
+            InventoryItemModel.deleted_at.is_(None),
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def create(self, item: InventoryItem) -> InventoryItem:
         row = InventoryItemModel(
             id=item.id,
             name=item.name,
+            user_id=item.user_id,
             description=item.description,
             category=item.category,
             location=item.location,
@@ -50,21 +63,22 @@ class PostgresInventoryRepository(InventoryRepository):
         await self._session.refresh(row)
         return _to_entity(row)
 
-    async def get(self, item_id: uuid.UUID) -> InventoryItem | None:
-        row = await self._session.get(InventoryItemModel, item_id)
-        if row is None or row.deleted_at is not None:
-            return None
-        return _to_entity(row)
+    async def get(self, item_id: uuid.UUID, *, user_id: uuid.UUID) -> InventoryItem | None:
+        row = await self._get_row(item_id, user_id=user_id)
+        return _to_entity(row) if row else None
 
     async def list_all(
         self,
         *,
+        user_id: uuid.UUID,
         category: str | None = None,
         location: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[InventoryItem]:
-        stmt = select(InventoryItemModel).where(InventoryItemModel.deleted_at.is_(None))
+        stmt = select(InventoryItemModel).where(
+            InventoryItemModel.user_id == user_id, InventoryItemModel.deleted_at.is_(None)
+        )
         if category:
             stmt = stmt.where(InventoryItemModel.category == category)
         if location:
@@ -76,8 +90,8 @@ class PostgresInventoryRepository(InventoryRepository):
         return [_to_entity(row) for row in result.scalars().all()]
 
     async def update(self, item: InventoryItem) -> InventoryItem:
-        row = await self._session.get(InventoryItemModel, item.id)
-        if row is None or row.deleted_at is not None:
+        row = await self._get_row(item.id, user_id=item.user_id)
+        if row is None:
             raise ValueError(f"Inventory item {item.id} not found")
         row.name = item.name
         row.description = item.description
@@ -92,18 +106,21 @@ class PostgresInventoryRepository(InventoryRepository):
         await self._session.refresh(row)
         return _to_entity(row)
 
-    async def delete(self, item_id: uuid.UUID) -> None:
-        row = await self._session.get(InventoryItemModel, item_id)
+    async def delete(self, item_id: uuid.UUID, *, user_id: uuid.UUID) -> None:
+        row = await self._get_row(item_id, user_id=user_id)
         if row is None:
             return
         row.deleted_at = func.now()
         await self._session.commit()
 
-    async def search(self, query: str, *, limit: int = 50) -> list[InventoryItem]:
+    async def search(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[InventoryItem]:
         ts_query = func.plainto_tsquery("english", query)
         stmt = (
             select(InventoryItemModel)
             .where(
+                InventoryItemModel.user_id == user_id,
                 InventoryItemModel.deleted_at.is_(None),
                 InventoryItemModel.search_vector.op("@@")(ts_query),
             )
@@ -112,3 +129,21 @@ class PostgresInventoryRepository(InventoryRepository):
         )
         result = await self._session.execute(stmt)
         return [_to_entity(row) for row in result.scalars().all()]
+
+    async def search_with_rank(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[tuple[InventoryItem, float]]:
+        ts_query = func.plainto_tsquery("english", query)
+        rank = func.ts_rank(InventoryItemModel.search_vector, ts_query).label("rank")
+        stmt = (
+            select(InventoryItemModel, rank)
+            .where(
+                InventoryItemModel.user_id == user_id,
+                InventoryItemModel.deleted_at.is_(None),
+                InventoryItemModel.search_vector.op("@@")(ts_query),
+            )
+            .order_by(rank.desc())
+            .limit(limit)
+        )
+        result = await self._session.execute(stmt)
+        return [(_to_entity(row), float(r)) for row, r in result.all()]

@@ -15,6 +15,7 @@ def _to_entity(row: DocumentModel) -> Document:
     return Document(
         id=row.id,
         title=row.title,
+        user_id=row.user_id,
         description=row.description,
         category=row.category,
         file_name=row.file_name,
@@ -32,10 +33,22 @@ class PostgresDocumentRepository(DocumentRepository):
     def __init__(self, session: AsyncSession):
         self._session = session
 
+    async def _get_row(
+        self, document_id: uuid.UUID, *, user_id: uuid.UUID
+    ) -> DocumentModel | None:
+        stmt = select(DocumentModel).where(
+            DocumentModel.id == document_id,
+            DocumentModel.user_id == user_id,
+            DocumentModel.deleted_at.is_(None),
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def create(self, document: Document) -> Document:
         row = DocumentModel(
             id=document.id,
             title=document.title,
+            user_id=document.user_id,
             description=document.description,
             category=document.category,
             file_name=document.file_name,
@@ -50,20 +63,21 @@ class PostgresDocumentRepository(DocumentRepository):
         await self._session.refresh(row)
         return _to_entity(row)
 
-    async def get(self, document_id: uuid.UUID) -> Document | None:
-        row = await self._session.get(DocumentModel, document_id)
-        if row is None or row.deleted_at is not None:
-            return None
-        return _to_entity(row)
+    async def get(self, document_id: uuid.UUID, *, user_id: uuid.UUID) -> Document | None:
+        row = await self._get_row(document_id, user_id=user_id)
+        return _to_entity(row) if row else None
 
     async def list_all(
         self,
         *,
+        user_id: uuid.UUID,
         category: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[Document]:
-        stmt = select(DocumentModel).where(DocumentModel.deleted_at.is_(None))
+        stmt = select(DocumentModel).where(
+            DocumentModel.user_id == user_id, DocumentModel.deleted_at.is_(None)
+        )
         if category:
             stmt = stmt.where(DocumentModel.category == category)
         stmt = (
@@ -73,8 +87,8 @@ class PostgresDocumentRepository(DocumentRepository):
         return [_to_entity(row) for row in result.scalars().all()]
 
     async def update(self, document: Document) -> Document:
-        row = await self._session.get(DocumentModel, document.id)
-        if row is None or row.deleted_at is not None:
+        row = await self._get_row(document.id, user_id=document.user_id)
+        if row is None:
             raise ValueError(f"Document {document.id} not found")
         row.title = document.title
         row.description = document.description
@@ -89,18 +103,21 @@ class PostgresDocumentRepository(DocumentRepository):
         await self._session.refresh(row)
         return _to_entity(row)
 
-    async def delete(self, document_id: uuid.UUID) -> None:
-        row = await self._session.get(DocumentModel, document_id)
+    async def delete(self, document_id: uuid.UUID, *, user_id: uuid.UUID) -> None:
+        row = await self._get_row(document_id, user_id=user_id)
         if row is None:
             return
         row.deleted_at = func.now()
         await self._session.commit()
 
-    async def search(self, query: str, *, limit: int = 50) -> list[Document]:
+    async def search(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[Document]:
         ts_query = func.plainto_tsquery("english", query)
         stmt = (
             select(DocumentModel)
             .where(
+                DocumentModel.user_id == user_id,
                 DocumentModel.deleted_at.is_(None),
                 DocumentModel.search_vector.op("@@")(ts_query),
             )
@@ -109,3 +126,21 @@ class PostgresDocumentRepository(DocumentRepository):
         )
         result = await self._session.execute(stmt)
         return [_to_entity(row) for row in result.scalars().all()]
+
+    async def search_with_rank(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[tuple[Document, float]]:
+        ts_query = func.plainto_tsquery("english", query)
+        rank = func.ts_rank(DocumentModel.search_vector, ts_query).label("rank")
+        stmt = (
+            select(DocumentModel, rank)
+            .where(
+                DocumentModel.user_id == user_id,
+                DocumentModel.deleted_at.is_(None),
+                DocumentModel.search_vector.op("@@")(ts_query),
+            )
+            .order_by(rank.desc())
+            .limit(limit)
+        )
+        result = await self._session.execute(stmt)
+        return [(_to_entity(row), float(r)) for row, r in result.all()]

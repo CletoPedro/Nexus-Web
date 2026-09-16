@@ -1,12 +1,9 @@
 """Document API tests, run against the real Postgres database."""
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
 
 
-def test_create_and_get_document():
+
+
+def test_create_and_get_document(client):
     resp = client.post(
         "/api/v1/documents",
         json={"title": "Passport", "category": "identity", "file_name": "passport.pdf"},
@@ -23,12 +20,12 @@ def test_create_and_get_document():
     client.delete(f"/api/v1/documents/{doc_id}")
 
 
-def test_create_rejects_empty_title():
+def test_create_rejects_empty_title(client):
     resp = client.post("/api/v1/documents", json={"title": "  "})
     assert resp.status_code == 422
 
 
-def test_storage_path_is_metadata_only():
+def test_storage_path_is_metadata_only(client):
     """
     Confirms storage_path is accepted and stored as a plain string, with
     no attempt to read/validate/serve an actual file — per the explicit
@@ -43,7 +40,7 @@ def test_storage_path_is_metadata_only():
     client.delete(f"/api/v1/documents/{resp.json()['id']}")
 
 
-def test_list_filters_by_category():
+def test_list_filters_by_category(client):
     id_resp = client.post("/api/v1/documents", json={"title": "Citizen Card", "category": "identity"})
     contract_resp = client.post("/api/v1/documents", json={"title": "Lease", "category": "contract"})
 
@@ -56,7 +53,7 @@ def test_list_filters_by_category():
     client.delete(f"/api/v1/documents/{contract_resp.json()['id']}")
 
 
-def test_update_document():
+def test_update_document(client):
     resp = client.post("/api/v1/documents", json={"title": "Old title"})
     doc_id = resp.json()["id"]
 
@@ -68,7 +65,7 @@ def test_update_document():
     client.delete(f"/api/v1/documents/{doc_id}")
 
 
-def test_delete_document_then_404():
+def test_delete_document_then_404(client):
     resp = client.post("/api/v1/documents", json={"title": "To delete"})
     doc_id = resp.json()["id"]
 
@@ -79,7 +76,7 @@ def test_delete_document_then_404():
     assert resp.status_code == 404
 
 
-def test_search_finds_matching_document():
+def test_search_finds_matching_document(client):
     resp = client.post(
         "/api/v1/documents",
         json={"title": "Car Insurance Policy", "description": "Renews every January"},
@@ -93,6 +90,6 @@ def test_search_finds_matching_document():
     client.delete(f"/api/v1/documents/{doc_id}")
 
 
-def test_get_nonexistent_document_is_404():
+def test_get_nonexistent_document_is_404(client):
     resp = client.get("/api/v1/documents/00000000-0000-0000-0000-000000000000")
     assert resp.status_code == 404

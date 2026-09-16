@@ -14,6 +14,7 @@ from datetime import datetime
 @dataclass
 class Memory:
     content: str
+    user_id: uuid.UUID
     tags: list[str] = field(default_factory=list)
     metadata_: dict = field(default_factory=dict)
     expires_at: datetime | None = None

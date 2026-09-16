@@ -1,6 +1,7 @@
 """Postgres implementation of TimelineRepository."""
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
 from sqlalchemy import func, select
@@ -18,6 +19,7 @@ def _to_entity(row: TimelineEventModel) -> TimelineEvent:
         entity_type=row.entity_type,
         entity_id=row.entity_id,
         title=row.title,
+        user_id=row.user_id,
         occurred_at=row.occurred_at,
         created_at=row.created_at,
     )
@@ -34,6 +36,7 @@ class PostgresTimelineRepository(TimelineRepository):
             entity_type=event.entity_type,
             entity_id=event.entity_id,
             title=event.title,
+            user_id=event.user_id,
         )
         self._session.add(row)
         await self._session.commit()
@@ -43,13 +46,14 @@ class PostgresTimelineRepository(TimelineRepository):
     async def list_all(
         self,
         *,
+        user_id: uuid.UUID,
         event_type: TimelineEventType | None = None,
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[TimelineEvent]:
-        stmt = select(TimelineEventModel)
+        stmt = select(TimelineEventModel).where(TimelineEventModel.user_id == user_id)
         if event_type is not None:
             stmt = stmt.where(TimelineEventModel.event_type == event_type)
         if start_date is not None:
@@ -64,11 +68,16 @@ class PostgresTimelineRepository(TimelineRepository):
         result = await self._session.execute(stmt)
         return [_to_entity(row) for row in result.scalars().all()]
 
-    async def search(self, query: str, *, limit: int = 50) -> list[TimelineEvent]:
+    async def search(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[TimelineEvent]:
         ts_query = func.plainto_tsquery("english", query)
         stmt = (
             select(TimelineEventModel)
-            .where(TimelineEventModel.search_vector.op("@@")(ts_query))
+            .where(
+                TimelineEventModel.user_id == user_id,
+                TimelineEventModel.search_vector.op("@@")(ts_query),
+            )
             .order_by(TimelineEventModel.occurred_at.desc())
             .limit(limit)
         )

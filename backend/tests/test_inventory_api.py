@@ -1,12 +1,9 @@
 """Inventory API tests, run against the real Postgres database."""
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
 
 
-def test_create_and_get_item():
+
+
+def test_create_and_get_item(client):
     resp = client.post("/api/v1/inventory", json={"name": "Laptop", "location": "office"})
     assert resp.status_code == 201
     body = resp.json()
@@ -20,17 +17,17 @@ def test_create_and_get_item():
     client.delete(f"/api/v1/inventory/{item_id}")
 
 
-def test_create_rejects_empty_name():
+def test_create_rejects_empty_name(client):
     resp = client.post("/api/v1/inventory", json={"name": "  "})
     assert resp.status_code == 422
 
 
-def test_create_rejects_negative_quantity():
+def test_create_rejects_negative_quantity(client):
     resp = client.post("/api/v1/inventory", json={"name": "Widget", "quantity": -1})
     assert resp.status_code == 422
 
 
-def test_create_with_valid_document_reference():
+def test_create_with_valid_document_reference(client):
     doc_resp = client.post("/api/v1/documents", json={"title": "Laptop Warranty"})
     doc_id = doc_resp.json()["id"]
 
@@ -45,7 +42,7 @@ def test_create_with_valid_document_reference():
     client.delete(f"/api/v1/documents/{doc_id}")
 
 
-def test_create_rejects_nonexistent_document_reference():
+def test_create_rejects_nonexistent_document_reference(client):
     resp = client.post(
         "/api/v1/inventory",
         json={"name": "Laptop", "document_id": "00000000-0000-0000-0000-000000000000"},
@@ -54,7 +51,7 @@ def test_create_rejects_nonexistent_document_reference():
     assert resp.json()["error"] == "validation_error"
 
 
-def test_list_filters_by_category_and_location():
+def test_list_filters_by_category_and_location(client):
     tool_resp = client.post(
         "/api/v1/inventory", json={"name": "Drill", "category": "tools", "location": "garage"}
     )
@@ -76,7 +73,7 @@ def test_list_filters_by_category_and_location():
     client.delete(f"/api/v1/inventory/{furniture_resp.json()['id']}")
 
 
-def test_update_item():
+def test_update_item(client):
     resp = client.post("/api/v1/inventory", json={"name": "Old name"})
     item_id = resp.json()["id"]
 
@@ -88,7 +85,7 @@ def test_update_item():
     client.delete(f"/api/v1/inventory/{item_id}")
 
 
-def test_delete_item_then_404():
+def test_delete_item_then_404(client):
     resp = client.post("/api/v1/inventory", json={"name": "To delete"})
     item_id = resp.json()["id"]
 
@@ -99,7 +96,7 @@ def test_delete_item_then_404():
     assert resp.status_code == 404
 
 
-def test_search_finds_matching_item():
+def test_search_finds_matching_item(client):
     resp = client.post(
         "/api/v1/inventory", json={"name": "HDMI cable", "location": "blue drawer"}
     )
@@ -112,6 +109,6 @@ def test_search_finds_matching_item():
     client.delete(f"/api/v1/inventory/{item_id}")
 
 
-def test_get_nonexistent_item_is_404():
+def test_get_nonexistent_item_is_404(client):
     resp = client.get("/api/v1/inventory/00000000-0000-0000-0000-000000000000")
     assert resp.status_code == 404

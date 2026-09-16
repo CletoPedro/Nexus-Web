@@ -21,6 +21,7 @@ class DocumentService:
     async def create_document(
         self,
         *,
+        user_id: uuid.UUID,
         title: str,
         description: str = "",
         category: str = "",
@@ -35,6 +36,7 @@ class DocumentService:
             raise ValidationError("Document title cannot be empty.")
         document = Document(
             title=title.strip(),
+            user_id=user_id,
             description=description.strip() if description else "",
             category=category.strip() if category else "",
             file_name=file_name,
@@ -46,21 +48,24 @@ class DocumentService:
         )
         return await self._repo.create(document)
 
-    async def get_document(self, document_id: uuid.UUID) -> Document:
-        document = await self._repo.get(document_id)
+    async def get_document(self, document_id: uuid.UUID, *, user_id: uuid.UUID) -> Document:
+        document = await self._repo.get(document_id, user_id=user_id)
         if document is None:
             raise NotFoundError(f"Document {document_id} not found.")
         return document
 
     async def list_documents(
-        self, *, category: str | None = None, limit: int = 100, offset: int = 0
+        self, *, user_id: uuid.UUID, category: str | None = None, limit: int = 100, offset: int = 0
     ) -> list[Document]:
-        return await self._repo.list_all(category=category, limit=limit, offset=offset)
+        return await self._repo.list_all(
+            user_id=user_id, category=category, limit=limit, offset=offset
+        )
 
     async def update_document(
         self,
         document_id: uuid.UUID,
         *,
+        user_id: uuid.UUID,
         title: str,
         description: str | None = None,
         category: str | None = None,
@@ -70,7 +75,7 @@ class DocumentService:
     ) -> Document:
         if not title or not title.strip():
             raise ValidationError("Document title cannot be empty.")
-        existing = await self.get_document(document_id)
+        existing = await self.get_document(document_id, user_id=user_id)
         existing.title = title.strip()
         if description is not None:
             existing.description = description.strip()
@@ -82,14 +87,16 @@ class DocumentService:
             existing.expiry_date = expiry_date
         return await self._repo.update(existing)
 
-    async def delete_document(self, document_id: uuid.UUID) -> None:
-        await self.get_document(document_id)
-        await self._repo.delete(document_id)
+    async def delete_document(self, document_id: uuid.UUID, *, user_id: uuid.UUID) -> None:
+        await self.get_document(document_id, user_id=user_id)
+        await self._repo.delete(document_id, user_id=user_id)
 
-    async def search_documents(self, query: str, *, limit: int = 50) -> list[Document]:
+    async def search_documents(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[Document]:
         if not query or not query.strip():
             return []
-        return await self._repo.search(query.strip(), limit=limit)
+        return await self._repo.search(query.strip(), user_id=user_id, limit=limit)
 
 
 def get_document_service(

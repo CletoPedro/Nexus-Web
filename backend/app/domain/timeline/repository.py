@@ -1,6 +1,7 @@
 """TimelineRepository interface — lives in domain/, per W1 architecture."""
 from __future__ import annotations
 
+import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -15,6 +16,7 @@ class TimelineRepository(ABC):
     async def list_all(
         self,
         *,
+        user_id: uuid.UUID,
         event_type: TimelineEventType | None = None,
         start_date: datetime | None = None,
         end_date: datetime | None = None,
@@ -23,4 +25,6 @@ class TimelineRepository(ABC):
     ) -> list[TimelineEvent]: ...
 
     @abstractmethod
-    async def search(self, query: str, *, limit: int = 50) -> list[TimelineEvent]: ...
+    async def search(
+        self, query: str, *, user_id: uuid.UUID, limit: int = 50
+    ) -> list[TimelineEvent]: ...

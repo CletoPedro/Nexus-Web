@@ -10,6 +10,7 @@ from decimal import Decimal
 @dataclass
 class InventoryItem:
     name: str
+    user_id: uuid.UUID
     description: str = ""
     category: str = ""
     location: str = ""

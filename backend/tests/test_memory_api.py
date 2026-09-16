@@ -3,14 +3,11 @@ Memory API tests. These run against the real Postgres database configured
 in Settings — no mocking of the repository or database layer. Each test
 cleans up the rows it creates.
 """
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
 
 
-def test_create_and_get_memory():
+
+
+def test_create_and_get_memory(client):
     resp = client.post("/api/v1/memories", json={"content": "Passport is in the safe."})
     assert resp.status_code == 201
     body = resp.json()
@@ -25,12 +22,12 @@ def test_create_and_get_memory():
     client.delete(f"/api/v1/memories/{memory_id}")
 
 
-def test_create_rejects_empty_content():
+def test_create_rejects_empty_content(client):
     resp = client.post("/api/v1/memories", json={"content": "   "})
     assert resp.status_code == 422
 
 
-def test_list_memories_includes_created():
+def test_list_memories_includes_created(client):
     resp = client.post("/api/v1/memories", json={"content": "List-test memory."})
     memory_id = resp.json()["id"]
 
@@ -42,7 +39,7 @@ def test_list_memories_includes_created():
     client.delete(f"/api/v1/memories/{memory_id}")
 
 
-def test_update_memory():
+def test_update_memory(client):
     resp = client.post("/api/v1/memories", json={"content": "Original content."})
     memory_id = resp.json()["id"]
 
@@ -57,7 +54,7 @@ def test_update_memory():
     client.delete(f"/api/v1/memories/{memory_id}")
 
 
-def test_delete_memory_then_404():
+def test_delete_memory_then_404(client):
     resp = client.post("/api/v1/memories", json={"content": "To be deleted."})
     memory_id = resp.json()["id"]
 
@@ -68,7 +65,7 @@ def test_delete_memory_then_404():
     assert resp.status_code == 404
 
 
-def test_search_finds_matching_memory():
+def test_search_finds_matching_memory(client):
     resp = client.post(
         "/api/v1/memories", json={"content": "My HDMI cable is in the blue drawer."}
     )
@@ -82,6 +79,6 @@ def test_search_finds_matching_memory():
     client.delete(f"/api/v1/memories/{memory_id}")
 
 
-def test_get_nonexistent_memory_is_404():
+def test_get_nonexistent_memory_is_404(client):
     resp = client.get("/api/v1/memories/00000000-0000-0000-0000-000000000000")
     assert resp.status_code == 404

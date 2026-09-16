@@ -24,6 +24,16 @@ def configure_logging() -> None:
     if not settings.debug:
         logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
+    if (
+        settings.environment != "development"
+        and settings.secret_key.startswith("INSECURE-DEV-ONLY")
+    ):
+        logging.getLogger("app.core.config").warning(
+            "SECRET_KEY is still the insecure development default in a "
+            "non-development environment. Set the SECRET_KEY environment "
+            "variable immediately — sessions are not safe until you do."
+        )
+
 
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)

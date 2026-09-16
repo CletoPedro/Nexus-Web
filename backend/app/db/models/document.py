@@ -1,6 +1,6 @@
 """Document ORM model. Full-text search over title + description + category."""
-from sqlalchemy import ARRAY, BigInteger, Computed, Date, Index, String, Text
-from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy import ARRAY, BigInteger, Computed, Date, ForeignKey, Index, String, Text
+from sqlalchemy.dialects.postgresql import TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import AuditMixin, Base
@@ -10,6 +10,9 @@ class DocumentModel(AuditMixin, Base):
     __tablename__ = "documents"
 
     title: Mapped[str] = mapped_column(String(500), nullable=False)
+    user_id: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     category: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     file_name: Mapped[str] = mapped_column(String(500), nullable=False, default="")
