@@ -20,30 +20,17 @@
     }
   },
   "rewrites": [
-  {
-    "source": "/health",
-    "destination": {
-      "service": "backend",
-      "path": "/health"
+    {
+      "source": "/api/:path*",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
     }
-  },
-  {
-    "source": "/health/db",
-    "destination": {
-      "service": "backend",
-      "path": "/health/db"
-    }
-  },
-  {
-    "source": "/api/:path*",
-    "destination": {
-      "service": "backend"
-    }
-  },
-  {
-    "source": "/(.*)",
-    "destination": {
-      "service": "frontend"
-    }
-  }
-]
+  ]
+}
